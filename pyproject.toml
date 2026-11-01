@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rulerpack"
-version = "0.2.0"
+version = "0.2.1"
 description = "Lars Rocha's XOR rulers: pack a prime and its index into one integer and recover both with mod and XOR."
 readme = "README.md"
 requires-python = ">=3.9"

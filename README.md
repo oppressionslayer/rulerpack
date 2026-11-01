@@ -311,6 +311,22 @@ any size, the ruler for many lookups in a range you have drawn.
   to `SEEDS`; `a` is any int, so `rp.wheel_report(2**8191 - 1)` prints which of the hundred
   numbers past the Mersenne prime the wheel removes and by what (twelve survive).
 
+## Experiments
+
+`rulerpack.experiments` is the drawer for things that were fun in a session and might be
+more. Nothing else imports it. Each function reproduces an IPython moment exactly and says
+what it saw.
+
+```python
+import rulerpack.experiments as rx
+rx.stripe(primes)              # (idx ^ 2p) % 4 with idx = arange(2, n, 10): 2, 0, 2, 0, ...
+rx.jumps(primes)               # 97, 172, 309, 564 among them: 2p crossing 1024, 2048, 4096, 8192
+rx.last_before_blocks(primes)  # 127, 251, 383, 509, ... 1021, 2039, 4093, 8191 among them
+rx.layers(primes)              # z % 4, 8, 16, 32: one more bit of the primes per row, the stripe under all of them
+rx.recover(primes, 32)         # ((z % 32) ^ (idx % 32)) >> 1 == p % 16: XOR hides nothing
+rx.stripe_control()            # odd composites stripe the same way: the stripe is not about primes
+```
+
 ## Install
 
 ```
@@ -324,6 +340,11 @@ rulerpack --ladder 32
 MIT license.
 
 ## Changes
+
+**0.2.1** (2026-11-01)
+
+- `rulerpack.experiments`: the drawer, with the step-10 index, its layers, the recovery and the
+  odd-composite control. Ported to the Rust crate's `experiments` module in the same release.
 
 **0.2.0** (2026-11-01)
 

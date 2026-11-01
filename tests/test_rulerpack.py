@@ -446,3 +446,46 @@ def test_the_512_slide_is_the_session_array_and_opens_back_to_the_primes():
     gaps = primes[rep + 1] - primes[rep]
     assert (gaps == 2).sum() == 112 and (gaps == 6).sum() == 46
     assert rp.carry(np.arange(1, 17)).tolist() == [2, 6, 6, 2, 2, 14, 14, 2, 2, 6, 6, 2, 2, 30, 30, 2]
+
+
+def test_experiment_one_the_step_ten_index():
+    import rulerpack.experiments as rx
+    primes = rp.primes_first(10_000)
+    idx = rx.stride_index(primes)
+    assert idx[:4].tolist() == [2, 12, 22, 32] and (idx[:100] % 4).tolist() == [2, 0] * 50
+    x = rx.xor_index(primes)
+    assert x[:8].tolist() == [6, 10, 28, 46, 60, 46, 28, 110], "In [477]"
+    s = rx.stripe(primes)
+    assert s[0] == 2 and s[1:200].tolist() == [2, 0] * 99 + [2], "In [478]: the p = 2 exception, then the stripe"
+    j = rx.jumps(primes)                     # idx has 1000 entries, over the first 1000 primes
+    for i in (97, 172, 309, 564):
+        assert i in j, f"2p crosses a power of two at {i}"
+    assert 2 * primes[97] >= 1024 > 2 * primes[96]
+    last = rx.last_before_blocks(primes)
+    assert last[:4].tolist() == [127, 251, 383, 509]
+    for p in (127, 1021, 2039, 4093, 8191):
+        assert p in last
+    assert (rx.gaps_to_blocks(primes) % 2 == 1).all()
+    assert np.array_equal(rx.block_crossings(primes), np.flatnonzero(np.diff((primes * 2) >> 8)))
+
+
+def test_experiment_one_continued_the_layers_peel_back_off():
+    import rulerpack.experiments as rx
+    primes = rp.primes_first(10_000)
+    L = rx.layers(primes)
+    assert L[4].tolist()[:12] == [2, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2]
+    assert L[8].tolist()[:12] == [6, 2, 4, 6, 4, 6, 4, 6, 4, 6, 0, 2], "In [481]"
+    assert L[32].tolist()[:9] == [6, 10, 28, 14, 28, 14, 28, 14, 28]
+    # every layer keeps the one below it
+    for lo, hi in ((4, 8), (8, 16), (16, 32)):
+        assert np.array_equal(L[hi] % lo, L[lo])
+    idx = rx.stride_index(primes)
+    p = primes[: len(idx)]
+    for m in (4, 8, 16, 32, 256):
+        assert np.array_equal(rx.recover(primes, m), p % (m // 2)), f"the % {m} row carries p mod {m // 2}"
+    cols = rx.side_by_side(primes)
+    assert np.array_equal(cols[:, 0] ^ cols[:, 1], cols[:, 2])
+    assert cols[2].tolist() == [22, 10, 28], "idx 22, 2*5 = 10, and 22 ^ 10 = 28"
+    # the control: odd composites stripe the same way, so the stripe is not about primes
+    c = rx.stripe_control()
+    assert set(c[0::2].tolist()) == {0} and set(c[1::2].tolist()) == {2}, "0, 2, 0, 2 with no exception: no 2 in the list"
