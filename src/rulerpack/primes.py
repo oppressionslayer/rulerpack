@@ -91,3 +91,30 @@ try:
         return bool(_g.is_prime(int(n)))
 except ImportError:          # pragma: no cover
     isprime = _isprime_py
+
+
+def wheel_pass(a, count=100, seeds=None):
+    """Run the seed wheel over ``a, a+1, ..., a+count-1``.
+
+    Returns a list of ``(d, divisor)``: the offset and the first of ``[2, *seeds]`` that divides
+    ``a + d``, or ``None`` when no seed does and the number survives the wheel. ``seeds`` defaults
+    to ``SEEDS``; pass a shorter or longer list to see what a smaller or bigger wheel removes.
+    ``a`` may be any Python int, so a Mersenne number works as well as a small anchor.
+    """
+    qs = [2, *(SEEDS if seeds is None else seeds)]
+    return [(d, next((q for q in qs if (a + d) % q == 0), None)) for d in range(count)]
+
+
+def wheel_report(a, count=100, seeds=None, show=print):
+    """Print ``wheel_pass`` one line per offset: ``survives`` or ``removed — divisible by q``.
+
+    Returns the number of survivors.
+    """
+    survivors = 0
+    for d, q in wheel_pass(a, count, seeds):
+        if q is None:
+            survivors += 1
+            show(f"{d:2}: survives")
+        else:
+            show(f"{d:2}: removed — divisible by {q}")
+    return survivors

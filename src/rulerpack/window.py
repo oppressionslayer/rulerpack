@@ -397,6 +397,33 @@ def primes_from_x(start, Xs, bits=17):
     return out
 
 
+def hints_from_x(Xs, bits=17):
+    """Strip a hinted pack's X array down to the hints alone: `(X >> 1) & (2^bits - 1)`.
+
+    This is everything the walk needs. Seventeen bits per prime, whatever the size of the
+    primes; the rest of X (the index, the top of p) can be thrown away."""
+    Xs = np.asarray(Xs)
+    return (Xs >> 1) & ((1 << bits) - 1)
+
+
+def hint_walk(start, hints, bits=17):
+    """**The hint walk**: the primes after `start`, from nothing but their low `bits` bits.
+
+    No K, no index, no count, no primality test, no search: each step is one modulo and
+    one add, `hinted_next`. Any increasing integer sequence walks the same way as long as
+    every step is under 2^bits, which for the primes holds to about 2^256 at 17 bits.
+
+        fam = rp.hinted_family(17)
+        K, X = fam.encode_array(rp.primes_first(1000))
+        rp.hint_walk(2, rp.hints_from_x(X[1:]), 17) == rp.primes_first(1000)[1:]"""
+    p = int(start)
+    out = []
+    for h in hints:
+        p = hinted_next(p, int(h), bits)
+        out.append(p)
+    return out
+
+
 # ── gap accounting per range (Lars Rocha): the ruler of a realm is ln x ──
 
 def gap_profile(anchor, n=100_000):

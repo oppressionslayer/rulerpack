@@ -55,6 +55,16 @@ tick is taller at every power of two.
 | `rp.ruler(i, L, c)` | `((Li) ^ (Li+cL+1)) ^ 1` | `L * (i ^ (i+c))` |
 | `rp.R257(i)` | L=4, c=64 | `256 * ladder(i >> 6)` |
 | `rp.R513(i)` | L=256, c=2 | `512 * ladder(i >> 1)` |
+| `rp.R896(i)` | `(896 + 512i) ^ (512i)` | `384 + 512 * ladder(i)`: 896, 1920, 896, 3968, ... |
+| `rp.carry(i)` | `ladder(i) ^ ladder(i+1)` | 2, 6, 6, 2, 2, 14, 14, 2, ... the ruler's carry |
+
+**The 512 slide.** `rp.slide512(primes)` is the session's `((p*512) ^ 512) ^ R896(i)`;
+every entry is `384 + 512 * ((p ^ 1) ^ ladder(i))`, so the array is 384 mod 512 and
+128 mod 256 for any input at all, and `rp.unslide512(B, i)` reads the primes straight
+back. `rp.slide_repeats(primes)` finds where it repeats, `B[i] == B[i+1]`, which is
+exactly where `p ^ p' == carry(i)`: 165 of the first 2,261 steps, two thirds of them
+twin primes. The carry is independent of the gap, so the repeats are a lamp on the
+sequence rather than a sieve of it; the measurements are in `ruler_stack` next door.
 
 ## The pack
 
@@ -226,6 +236,29 @@ K, X = fam.encode_array(rp.primes_first(1_000_000))
 rp.primes_from_x(2, X[1:], 17)              # every prime back, 0.5 s, zero tests
 ```
 
+**Seventeen bits per prime is the whole thing.** Strip X down to the hints and
+throw the rest away; the walk still runs, and so does the comparison Lars ran
+in the session:
+
+```python
+hints = (X >> 1) & ((1 << 17) - 1)          # rp.hints_from_x(X, 17)
+
+p = 2
+out = []
+for h in hints[1:31]:
+    p = rp.hinted_next(p, int(h), 17)
+    out.append(p)
+
+out == rp.primes_from_x(2, X[1:31], 17)     # True
+rp.hint_walk(2, hints[1:], 17)              # the same walk, as one call
+```
+
+So one encoding reads two ways: K and X together open any pair directly, by
+index or by prime, and the low bits of X alone rebuild the whole sequence in
+order. The walk is not about primes in particular; any increasing integers
+rebuild from their low bits as long as each step stays under the hint modulus,
+and the prime gaps do so to about 2^256 at 17 bits.
+
 ## Indexed primes above an anchor
 
 Count once at the anchor, then every prime found above it takes the next index
@@ -273,6 +306,10 @@ any size, the ruler for many lookups in a range you have drawn.
   first 831,000 primes.
 - `rp.li`, `rp.li_inverse`, `rp.riemann_r`, `rp.riemann_r_inverse`.
 - `rp.key(n)`, `rp.topo(n)`, `rp.build_kx(n)`: the original session arrays.
+- `rp.wheel_pass(a, count=100, seeds=None)`: the seed wheel run over `a, a+1, ...`; each
+  offset's first divisor among `[2, *seeds]`, or `None` when it survives. `seeds` defaults
+  to `SEEDS`; `a` is any int, so `rp.wheel_report(2**8191 - 1)` prints which of the hundred
+  numbers past the Mersenne prime the wheel removes and by what (twelve survive).
 
 ## Install
 
@@ -285,3 +322,14 @@ rulerpack --ladder 32
 ```
 
 MIT license.
+
+## Changes
+
+**0.2.0** (2026-11-01)
+
+- `wheel_pass`, `wheel_report`: the seed wheel over any anchor, `seeds` as a parameter with
+  `SEEDS` the default; `2**8191 - 1` works as an anchor.
+- `hints_from_x`, `hint_walk`: the primes back in order from seventeen bits each, no test.
+- `R896`, `carry`, `slide512`, `unslide512`, `slide_repeats`: the 512 slide and where it repeats.
+
+**0.1.0** — the rulers, the pack, counting, marks, the window, hints, indexed primes.

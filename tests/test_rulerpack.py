@@ -382,3 +382,67 @@ def test_window_at_anchor_zero_keeps_the_seeds():
     # a seed at offset q of the window anchored at 0 was struck by its own stride
     assert list(rp.window(0, 20)) == [1, 3, 5, 7, 11, 13, 17, 19]   # offsets; at anchor 0, the numbers
     assert list(rp.window(3, 10)) == [0, 2, 4, 8]                   # 3, 5, 7, 11
+
+
+def test_wheel_pass_defaults_to_the_seeds_and_takes_its_own():
+    a = 2**8191 - 1
+    full = rp.wheel_pass(a, 100)
+    assert len(full) == 100 and full[0] == (0, None), "the Mersenne prime itself survives"
+    assert full[1] == (1, 2), "2^8191 is even"
+    # every survivor really has no seed factor; every removal names a real divisor
+    for d, q in full:
+        if q is None:
+            assert all((a + d) % s for s in [2, *rp.seeds()])
+        else:
+            assert (a + d) % q == 0 and q in [2, *rp.seeds()]
+    # a smaller wheel removes less, and the two agree wherever the small one removes
+    small = rp.wheel_pass(a, 100, seeds=[3, 5, 7])
+    assert sum(q is None for _, q in small) > sum(q is None for _, q in full)
+    assert all(fq is not None for (_, sq), (_, fq) in zip(small, full) if sq is not None)
+    lines = []
+    n = rp.wheel_report(a, 10, show=lines.append)
+    assert n == sum(q is None for _, q in full[:10]) and lines[0] == " 0: survives"
+
+
+def test_the_hint_walk_rebuilds_the_primes_from_seventeen_bits_each():
+    primes = rp.primes_first(100_000)
+    fam = rp.hinted_family(17)
+    K, X = fam.encode_array(primes)
+    hints = rp.hints_from_x(X[1:], 17)
+    assert hints.max() < 1 << 17
+    assert np.array_equal(hints, (X[1:] >> 1) & ((1 << 17) - 1)), "Lars's one-liner"
+    out = rp.hint_walk(2, hints, 17)
+    assert out == primes[1:].tolist()
+    assert out == rp.primes_from_x(2, X[1:], 17)
+    # the walk does not care that they are primes: any climb under 2^bits per step
+    seq = [10, 25, 26, 1000, 1001 + 2**17 - 1]
+    hs = [x & (2**17 - 1) for x in seq[1:]]
+    assert rp.hint_walk(seq[0], hs, 17) == seq[1:]
+    # one step too far and the hint wraps to the wrong number: that is the one condition
+    assert rp.hint_walk(0, [0], 17) == [2**17]
+
+
+def test_the_512_slide_is_the_session_array_and_opens_back_to_the_primes():
+    primes = rp.primes_first(2262)
+    i = np.arange(2262)
+    # In [6696]: the two aranges
+    assert np.array_equal(rp.R896(np.arange(2047)), np.arange(7 * 128, 2048 * 512, 512) ^ np.arange(0, 2047 * 512, 512))
+    assert np.array_equal(rp.R896(i), 384 + 512 * rp.ladder(i))
+    # In [6697]: the slide over the first 31 primes
+    want = ((primes[:31] * 512) ^ 512) ^ np.arange(7 * 128, 32 * 512, 512) ^ np.arange(0, 31 * 512, 512)
+    B = rp.slide512(primes)
+    assert np.array_equal(B[:31], want)
+    assert B[:12].tolist()[:3] == [1408, 896, 2944]
+    # the residues belong to the constant, not the primes
+    assert (B % 512 == 384).all() and (B % 256 == 128).all() and (B % 128 == 0).all()
+    assert (rp.slide512(np.arange(31)) % 256 == 128).all()
+    # and the primes come straight back
+    assert np.array_equal(rp.unslide512(B, i), primes)
+    # repeats: 165 among 2261 steps, every one where p ^ p' is the carry, two thirds twins
+    rep = rp.slide_repeats(primes)
+    assert len(rep) == 165 and rep[:4].tolist() == [9, 12, 25, 27]
+    assert (B[rep] == B[rep + 1]).all()
+    assert np.array_equal(rep, np.flatnonzero(B[:-1] == B[1:]))
+    gaps = primes[rep + 1] - primes[rep]
+    assert (gaps == 2).sum() == 112 and (gaps == 6).sum() == 46
+    assert rp.carry(np.arange(1, 17)).tolist() == [2, 6, 6, 2, 2, 14, 14, 2, 2, 6, 6, 2, 2, 30, 30, 2]

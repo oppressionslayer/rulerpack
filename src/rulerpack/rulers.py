@@ -59,3 +59,48 @@ def topo(n):
     r = RP(i)
     return {"primes2": p2, "rp": r, "rp_xor1": r ^ 1, "key": p2 ^ (r ^ 1),
             "primes2_mod6": p2 % 6, "primes2_mod8": p2 % 8}
+
+
+# ── the 512 slide (Lars Rocha, session 6696-6703) ─────────────────────────────
+
+def R896(i):
+    """The two-arange ruler: (896 + 512i) ^ (512i) == 384 + 512 * ladder(i).
+
+    896, 1920, 896, 3968, 896, 1920, 896, 8064, ... — 896 half the time, the spike at every
+    power of two. It is the ladder carried up to bit 9 and offset by the constant 384."""
+    return (896 + 512 * i) ^ (512 * i)
+
+
+def carry(i):
+    """The ruler's carry at i: ladder(i) ^ ladder(i+1). Only ever 2, 6, 14, 30, ..., in pairs:
+    2, 6, 6, 2, 2, 14, 14, 2, 2, 6, 6, 2, 2, 30, 30, 2, ..."""
+    return ladder(i) ^ ladder(i + 1)
+
+
+def slide512(p, i=None):
+    """**The 512 slide**: ((p * 512) ^ 512) ^ R896(i), the array of In [6697].
+
+    `i` defaults to 0, 1, 2, ... along p. Every entry is 384 + 512 * ((p ^ 1) ^ ladder(i)), so
+    it is 384 mod 512, 128 mod 256 and 0 mod 128 for any p whatever; the primes live from bit 9
+    up, and `unslide512` reads them straight back."""
+    p = np.asarray(p, dtype=np.int64)
+    if i is None:
+        i = np.arange(p.size, dtype=np.int64).reshape(p.shape)
+    return ((p * 512) ^ 512) ^ R896(i)
+
+
+def unslide512(b, i):
+    """p back from a slide entry and its index: (((b - 384) // 512) ^ ladder(i)) ^ 1."""
+    b = np.asarray(b, dtype=np.int64)
+    return (((b - 384) // 512) ^ ladder(np.asarray(i, dtype=np.int64))) ^ 1
+
+
+def slide_repeats(p):
+    """Indices i where the slide repeats, slide[i] == slide[i+1].
+
+    That happens exactly when p[i] ^ p[i+1] == carry(i): the gap's XOR agrees with the ruler's
+    carry. Two thirds of them are twin primes, most of the rest gaps of six. The carry is
+    independent of the gap, so this is a lamp on the sequence, not a sieve of it."""
+    p = np.asarray(p, dtype=np.int64)
+    i = np.arange(p.size - 1, dtype=np.int64)
+    return np.flatnonzero((p[:-1] ^ p[1:]) == carry(i))
